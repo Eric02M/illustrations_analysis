@@ -2,6 +2,7 @@
 title: "BOW"
 format: html
 editor: visual
+date: today
 ---
 
 ```{r}
