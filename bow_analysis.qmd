@@ -54,6 +54,8 @@ n_distinct(bow$`Parent Species`)
 
 ```{r}
 #group by scientific name, then summarize to find the summaries
+#figured out this is not going to give me the species per row
+#therefore decided to keep the code but change the section on subspecies in order to get the species per row
 species_summary <- bow |>
   group_by(`Scientific Name`) |>
   summarise(
