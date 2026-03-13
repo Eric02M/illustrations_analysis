@@ -1,0 +1,204 @@
+---
+title: "bow_final_code"
+format: html
+editor: visual
+date: today
+---
+
+```{r}
+
+
+library(tidyverse)
+library(readxl)
+library(writexl)
+
+
+```
+
+**Instructions**
+
+1.  each row is a species
+
+2.  columns to indicate
+
+    1.  number of total illustrations
+
+    2.  number of male illustrations
+
+    3.  number of female illustrations
+
+    4.  number of illustrations with no sex assigned
+
+    5.  are there illustrations for more than one subspecies (yes/no)
+
+    6.  are there illustrations for age classes other than adults(yes/no)
+
+```{r}
+#read the file
+bow <- read_excel('/Users/erickm/Documents/BOW_analysis/illustrations_analysis/BOW_Illustration _Metadata_v1_Complete.xlsx')
+
+#look at column names
+names(bow)
+
+#assess unique  Age column
+unique(bow$Age)
+
+#check how many unique birds we have
+n_distinct(bow$`Scientific Name`)
+
+#what are the distinct classifications
+unique(bow$`Taxon Category`)
+
+#how many unique parent species do we have?
+n_distinct(bow$`Parent Species`)
+
+
+```
+
+-   **notes on the shape of the dataframe**
+
+-   16919 unique species so we should have 16919 rows in the final dataframe. A difference of 7056 species.
+
+-   I retain only the new columns produced as a result of summarisation. - The columns agreed to be produced. The other columns are hard to keep in the dataset. For instance if we tried to keep the catalog numbers, we might not be able to identify later which catalog number refers to which bird in that particular species so it is cleaner having just the columns of interest.
+
+```{r}
+
+#find how many subspeceis per species using the parent species column
+subspecies_counts <- bow |>
+  filter(`Taxon Category` == "Subspecies") |>
+  group_by(`Parent Species`) |>
+  summarise(
+    n_subspecies = n_distinct(`Scientific Name`),
+    subspecies_names = paste(`Scientific Name`, collapse = ", ")
+  )
+
+```
+
+```{r}
+#remembered that species is different from scientific name
+
+#group the data by parent species since that is where we can idnetify a species
+#the goal is to have each row having a species
+bow_summary <- bow |>
+  group_by(`Parent Species`) |>
+  summarise(
+    
+    #sum total illustrations per species 
+    total_illustrations = n(),
+    
+    #sum illustrations labelled as male
+    male_illustrations =
+      sum(Sex == "Male", na.rm = TRUE),
+    
+    #sum illustrations labelled as male
+    female_illustrations =
+      sum(Sex == "Female", na.rm = TRUE),
+
+    #sum illustrations whose gender is not identifued
+    no_sex_assigned_illustrations =
+      sum(is.na(Sex)),
+
+    #to check if there are multile subspecies, we 
+    #species which are labelled as subspecies and since
+    #we have grouped by species it we just have to make 
+    #sure the scientific names are unique to make sure we don't 
+    #just sum the name subspecies.
+    multiple_subspecies =
+      n_distinct(`Scientific Name`[`Taxon Category` == "Subspecies"]) > 1,
+    
+    #count unique subspecies per species
+    multiple_subspecies_count =
+  n_distinct(`Scientific Name`[`Taxon Category` == "Subspecies"]),
+    
+     #what are the subspecies
+    subspecies_names =
+      paste(`Scientific Name`[`Taxon Category` == "Subspecies"], collapse = ", "),
+    
+  #check the ages that are not adults per species
+    non_adult_illustrations =
+      sum(Age != "Adult", na.rm = TRUE) >= 1,
+    
+  #how many non adult illustrations
+    non_adult_illustration_count =
+      sum(Age != "Adult", na.rm = TRUE),
+  
+    #what are the non adults per species
+    non_adult_ages =
+      paste(Age[Age != "Adult"], collapse = ", "),
+    
+      #what are the classifications categories
+     taxon_classification =
+  paste(unique(`Taxon Category`), collapse = ", "),
+  
+  #check how many of these are at least tagged/classified as species
+  #because not all are classified as species and 
+    has_species_tag =
+    sum(`Taxon Category` == "Species", na.rm = TRUE) >= 1,
+
+  #is there at least a bird labelled as species of all
+  #the labelling categories
+  classification_group =
+    ifelse(has_species_tag, "Species tag present", "No species tag present")
+  
+ 
+  )
+
+
+
+
+```
+
+```{r}
+
+#save the file as excel file
+write_xlsx(bow_summary, "bow_summary.xlsx")
+
+
+```
+
+```{r}
+
+no_species_tag_summary <- bow |>
+  group_by(`Parent Species`) |>
+  summarise(
+    has_species_tag =
+      sum(`Taxon Category` == "Species", na.rm = TRUE) >= 1,
+
+    taxon_classification =
+      paste(unique(`Taxon Category`), collapse = ", ")
+  ) |>
+  filter(!has_species_tag)
+
+
+#no of unique in the parent category
+n_distinct(bow$`Parent Species`)
+
+#no of those in the parent category without a speceis tag
+n_no_species_tag <- nrow(no_species_tag_summary)
+n_no_species_tag
+
+#no of unique birds as per the scientific name
+n_distinct(bow$`Scientific Name`)
+
+#no of uniwue in parent category with the species tag on themeselves
+n_distinct(bow$`Parent Species`)-n_no_species_tag
+```
+
+```{r}
+
+#plot gender illustrations just 50 illustrations due to too many rows
+bow |>
+  count(`Parent Species`, Sex) |>
+  group_by(`Parent Species`) |>
+  mutate(total = sum(n)) |>
+  ungroup() |>
+  slice_max(total, n = 50) |>
+  
+  ggplot(aes(x = n, y = `Parent Species`, fill = Sex)) +
+  geom_col(position = "dodge") +
+  theme_bw()
+```
+
+```{r}
+
+```
